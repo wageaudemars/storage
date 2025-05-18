@@ -1,1 +1,54 @@
-print("hello")
+local Players     = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+
+-- your raw GitHub URL hosting one user-ID per line
+local url = "https://raw.githubusercontent.com/wageaudemars/storage/main/txt"
+
+-- we'll store banned IDs as keys in this table
+local bannedUsers = {}
+
+local function fetchBanList()
+    local success, response = pcall(function()
+        return HttpService:GetAsync(url)
+    end)
+
+    if not success then
+        warn("❌ Failed to fetch ban list:", response)
+        return
+    end
+
+    print("✅ Ban list fetched, parsing…")
+    -- clear out any old entries
+    bannedUsers = {}
+
+    for line in response:gmatch("[^\r\n]+") do
+        -- trim whitespace
+        line = line:match("^%s*(.-)%s*$")
+        local id = tonumber(line)
+        if id then
+            bannedUsers[id] = true
+        else
+            warn("⚠️ Skipping invalid ID:", line)
+        end
+    end
+
+    -- debug: how many we just loaded?
+    local count = 0
+    for _ in pairs(bannedUsers) do count += 1 end
+    print(("🗄️ Loaded %d banned user%s"):format(count, count == 1 and "" or "s"))
+    print(bannedUsers)
+end
+
+-- fetch right away (and you can also schedule this on a loop or with a command)
+fetchBanList()
+
+Players.PlayerAdded:Connect(function(player)
+    if bannedUsers[player.UserId] then
+        -- user is in the ban list
+        warn("🚫 Banned user tried to join:", player.UserId)
+        player:Kick("You are banned from this game.")
+    else
+        -- user not banned
+        print("✅ Player allowed:", player.UserId)
+    end
+end)
